@@ -1,0 +1,177 @@
+Checking average AHT, agent wise to check for agent performance
+
+SELECT 
+    agent_id,
+    AVG(TIMESTAMPDIFF(SECOND, agent_assigned_datetime, call_end_datetime)) AS average_handle_time_seconds
+FROM 
+    calls
+GROUP BY 
+agent_id
+
+
+
+
+
+
+
+
+
+
+-- Calculate AHT for each call .here calls.csv is used
+SELECT 
+    call_id, 
+    customer_id, 
+    agent_id,
+    TIMESTAMPDIFF(SECOND, agent_assigned_datetime, call_end_datetime) AS handle_time_seconds
+FROM 
+    calls;
+
+-- Calculate overall AHT (in seconds).here calls.csv is used
+SELECT 
+    AVG(TIMESTAMPDIFF(SECOND, agent_assigned_datetime, call_end_datetime)) AS average_handle_time_seconds
+FROM 
+    calls;
+
+
+
+
+
+
+
+
+
+-- Calculate AST for each call
+SELECT 
+    call_id, 
+    customer_id, 
+    agent_id,
+    TIMESTAMPDIFF(SECOND, call_start_datetime, agent_assigned_datetime) AS speed_to_answer_seconds
+FROM 
+    calls;
+
+-- Calculate overall AST (in seconds)
+SELECT 
+    AVG(TIMESTAMPDIFF(SECOND, call_start_datetime, agent_assigned_datetime)) AS average_speed_to_answer_seconds
+FROM 
+    calls;
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Group by primary call reason and calculate AHT for each category, here calls.csv and reason.csv is use
+SELECT 
+    primary_call_reason, 
+    AVG(TIMESTAMPDIFF(SECOND, agent_assigned_datetime, call_end_datetime)) AS avg_handle_time_seconds,
+    COUNT(r.call_id) AS total_calls
+FROM 
+   calls c
+LEFT JOIN reason r
+ON c.call_id = r.call_id
+GROUP BY 
+    primary_call_reason
+ORDER BY 
+    avg_handle_time_seconds DESC;
+
+
+
+
+ -- Find the most and least frequent call reasons
+WITH call_frequency AS (
+    SELECT 
+        primary_call_reason, 
+        COUNT(r.call_id) AS call_count
+    FROM 
+   calls c
+LEFT JOIN reason r
+ON c.call_id = r.call_id
+    GROUP BY 
+        primary_call_reason
+)
+-- Calculate the AHT for the most and least frequent call reasons
+SELECT 
+    (MAX(call_count) - MIN(call_count)) / MIN(call_count) * 100 AS percentage_difference
+FROM 
+    call_frequency;
+
+
+
+
+
+
+
+
+
+
+
+
+ -- Join customer data with call data and calculate AHT and AST for each loyalty level
+SELECT 
+    c.elite_level_code, 
+    AVG(TIMESTAMPDIFF(SECOND, agent_assigned_datetime, call_end_datetime)) AS avg_handle_time_seconds,
+    AVG(TIMESTAMPDIFF(SECOND, call_start_datetime, agent_assigned_datetime)) AS avg_speed_to_answer_seconds,
+    COUNT(cc.call_id) AS total_calls
+FROM 
+    calls cc
+JOIN 
+    customers c 
+ON 
+    cc.customer_id = c.customer_id
+GROUP BY 
+    c.elite_level_code
+ORDER BY 
+    avg_handle_time_seconds DESC;
+
+
+
+
+
+
+
+
+-- Identify frequent call reasons for potential IVR automation
+SELECT 
+    primary_call_reason, 
+    COUNT(call_id) AS call_count
+FROM 
+   calls c
+LEFT JOIN reason r
+ON c.call_id = r.call_id
+GROUP BY 
+    primary_call_reason
+HAVING 
+    COUNT(call_id) > 100 -- Adjust threshold based on dataset size
+ORDER BY 
+    call_count DESC;
+
+-- Use the identified reasons to propose new or enhanced IVR options
+
+
+
+
+
+
+
+
+ -- Find recurring call reasons that could be solved via self-service options
+SELECT 
+    primary_call_reason, 
+    COUNT(call_id) AS call_count
+FROM 
+   calls c
+LEFT JOIN reason r
+ON c.call_id = r.call_id
+WHERE 
+    primary_call_reason IN ('simple inquiries', 'self-solvable issues') -- Adjust based on actual data
+GROUP BY 
+    primary_call_reason
+ORDER BY 
+    call_count DESC;
